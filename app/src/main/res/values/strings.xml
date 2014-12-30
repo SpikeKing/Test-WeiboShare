@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">WeiboSDKDemo</string>
+    <string name="hello_world">测试微博分享功能</string>
+    <string name="action_settings">Settings</string>
+
+    <!--分享微博入口界面-->
+    <string name="register_app2weibo_button">注册应用到微博</string>
+    <string name="register_app2weibo_toast">已注册，请打开微博客户端查看是否注册成功。</string>
+    <string name="share_jump_weibo_button">跳转分享</string>
+    <string name="share_api_weibo_button">API分享</string>
+    <string name="default_message_share_edit_text">这是一条测试微博!</string>
+
+    <!-- 分享成功失败的 Toast -->
+    <string name="weibosdk_demo_toast_share_success">分享成功</string>
+    <string name="weibosdk_demo_toast_share_failed">分享失败</string>
+    <string name="weibosdk_demo_toast_share_canceled">取消分享</string>
+    <string name="weibosdk_demo_toast_auth_success">授权成功</string>
+    <string name="weibosdk_demo_toast_auth_failed">授权失败</string>
+    <string name="weibosdk_demo_toast_auth_canceled">取消授权</string>
+
+    <string name="weibosdk_demo_token_info">Token 信息：</string>
+    <string name="weibosdk_demo_token_has_existed">Token 仍在有效期内，无需再次登录。</string>
+    <string name="weibosdk_demo_token_text_hint">第二步获取到的 Token：</string>
+    <string name="weibosdk_demo_token_to_string_format">Token：%1$s \nRefresh Token：%2$s \nexpires_in：%3$s</string>
+    <string name="weibosdk_demo_token_to_string_format_1">Token：%1$s \n有效期：%2$s</string>
+
+</resources>
