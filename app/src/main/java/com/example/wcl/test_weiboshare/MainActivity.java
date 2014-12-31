@@ -1,5 +1,6 @@
 package com.example.wcl.test_weiboshare;
 
+import android.content.Intent;
 import android.support.v7.app.ActionBarActivity;
 import android.os.Bundle;
 import android.text.TextUtils;
@@ -24,6 +25,7 @@ import com.sina.weibo.sdk.auth.Oauth2AccessToken;
 import com.sina.weibo.sdk.auth.WeiboAuthListener;
 import com.sina.weibo.sdk.auth.sso.SsoHandler;
 import com.sina.weibo.sdk.constant.WBConstants;
+import com.sina.weibo.sdk.demo.R;
 import com.sina.weibo.sdk.exception.WeiboException;
 import com.sina.weibo.sdk.net.RequestListener;
 import com.sina.weibo.sdk.utils.LogUtil;
@@ -39,7 +41,7 @@ public class MainActivity extends ActionBarActivity {
 
     private EditText mShareEditText; // 分享内容输入框
 
-    private TextView mTokenText; // Token信息
+    private TextView mTokenView; // Token信息
 
     private IWeiboShareAPI mWeiboShareAPI; // 微博分享实例
 
@@ -53,11 +55,21 @@ public class MainActivity extends ActionBarActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        // 关联布局
         mShareJumpWeiboButton = (Button) findViewById(R.id.share_jump_weibo_button);
         mShareApiWeiboButton = (Button) findViewById(R.id.share_api_weibo_button);
         mShareEditText = (EditText) findViewById(R.id.share_message_edit_text);
-        mTokenText = (TextView) findViewById(R.id.token_text_view);
 
+        mTokenView = (TextView) findViewById(R.id.token_text_view);
+        // 获取当前已保存过的 Token
+        mAccessToken = AccessTokenKeeper.readAccessToken(this);
+        if (mAccessToken != null && mAccessToken.isSessionValid()) {
+            String date = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss").format(new java.util.Date(mAccessToken.getExpiresTime()));
+            String format = getString(R.string.weibosdk_demo_token_to_string_format_1);
+            mTokenView.setText(String.format(format, mAccessToken.getToken(), date));
+        }
+
+        // 初始化微博分享API
         mWeiboShareAPI = WeiboShareSDK.createWeiboAPI(this, Constants.APP_KEY);
         mWeiboShareAPI.registerApp();
         if (savedInstanceState != null) {
@@ -87,7 +99,6 @@ public class MainActivity extends ActionBarActivity {
 
         mAuthInfo = new AuthInfo(this, Constants.APP_KEY, Constants.REDIRECT_URL, Constants.SCOPE);
         mSsoHandler = new SsoHandler(MainActivity.this, mAuthInfo);
-//        mAccessToken = AccessTokenKeeper.readAccessToken(this);
 
         mShareJumpWeiboButton.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -101,47 +112,11 @@ public class MainActivity extends ActionBarActivity {
             @Override
             public void onClick(View view) {
                 Log.e(TAG, "点击API分享按钮");
-
-                // 授权
-                mSsoHandler.authorize(new AuthListener());
-
-//                // 获取当前已保存过的 Token
-//                mAccessToken = AccessTokenKeeper.readAccessToken(MainActivity.this);
-//                // 对statusAPI实例化
-//                mStatusesAPI = new StatusesAPI(MainActivity.this, Constants.APP_KEY, mAccessToken);
-//
-//                mStatusesAPI.update(mShareEditText.getText().toString(), null, null, new RequestListener() {
-//                    @Override
-//                    public void onComplete(String response) {
-//                        if (!TextUtils.isEmpty(response)) {
-//                            LogUtil.i(TAG, response);
-//                            if (response.startsWith("{\"statuses\"")) {
-//                                // 调用 StatusList#parse 解析字符串成微博列表对象
-//                                StatusList statuses = StatusList.parse(response);
-//                                if (statuses != null && statuses.total_number > 0) {
-//                                    Toast.makeText(MainActivity.this,
-//                                            "获取微博信息流成功, 条数: " + statuses.statusList.size(),
-//                                            Toast.LENGTH_LONG).show();
-//                                }
-//                            } else if (response.startsWith("{\"created_at\"")) {
-//                                // 调用 Status#parse 解析字符串成微博对象
-//                                Status status = Status.parse(response);
-//                                Toast.makeText(MainActivity.this,
-//                                        "发送一送微博成功, id = " + status.id,
-//                                        Toast.LENGTH_LONG).show();
-//                            } else {
-//                                Toast.makeText(MainActivity.this, response, Toast.LENGTH_LONG).show();
-//                            }
-//                        }
-//                    }
-//
-//                    @Override
-//                    public void onWeiboException(WeiboException e) {
-//                        LogUtil.e(TAG, e.getMessage());
-//                        ErrorInfo info = ErrorInfo.parse(e.getMessage());
-//                        Toast.makeText(MainActivity.this, info.toString(), Toast.LENGTH_LONG).show();
-//                    }
-//                });
+                if (mAccessToken == null || !mAccessToken.isSessionValid()) {
+                    mSsoHandler.authorize(new AuthListener());
+                } else {
+                    sendMessageByApi();
+                }
             }
         });
     }
@@ -170,6 +145,7 @@ public class MainActivity extends ActionBarActivity {
             @Override
             public void onWeiboException(WeiboException arg0) {
             }
+
             @Override
             public void onComplete(Bundle bundle) {
                 // TODO Auto-generated method stub
@@ -178,8 +154,45 @@ public class MainActivity extends ActionBarActivity {
                 Toast.makeText(MainActivity.this,
                         "onAuthorizeComplete token = " + newToken.getToken(), Toast.LENGTH_LONG).show();
             }
+
             @Override
             public void onCancel() {
+            }
+        });
+    }
+
+    private void sendMessageByApi() {
+        mStatusesAPI = new StatusesAPI(MainActivity.this, Constants.APP_KEY, mAccessToken);
+        mStatusesAPI.update(mShareEditText.getText().toString(), null, null, new RequestListener() {
+            @Override
+            public void onComplete(String response) {
+                if (!TextUtils.isEmpty(response)) {
+                    LogUtil.i(TAG, response);
+                    if (response.startsWith("{\"statuses\"")) {
+                        // 调用 StatusList#parse 解析字符串成微博列表对象
+                        StatusList statuses = StatusList.parse(response);
+                        if (statuses != null && statuses.total_number > 0) {
+                            Toast.makeText(MainActivity.this,
+                                    "获取微博信息流成功, 条数: " + statuses.statusList.size(),
+                                    Toast.LENGTH_LONG).show();
+                        }
+                    } else if (response.startsWith("{\"created_at\"")) {
+                        // 调用 Status#parse 解析字符串成微博对象
+                        Status status = Status.parse(response);
+                        Toast.makeText(MainActivity.this,
+                                "发送一送微博成功, id = " + status.id,
+                                Toast.LENGTH_LONG).show();
+                    } else {
+                        Toast.makeText(MainActivity.this, response, Toast.LENGTH_LONG).show();
+                    }
+                }
+            }
+
+            @Override
+            public void onWeiboException(WeiboException e) {
+                LogUtil.e(TAG, e.getMessage());
+                ErrorInfo info = ErrorInfo.parse(e.getMessage());
+                Toast.makeText(MainActivity.this, info.toString(), Toast.LENGTH_LONG).show();
             }
         });
     }
@@ -188,43 +201,14 @@ public class MainActivity extends ActionBarActivity {
         String date = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss").format(
                 new java.util.Date(mAccessToken.getExpiresTime()));
         String format = getString(R.string.weibosdk_demo_token_to_string_format_1);
-        mTokenText.setText(String.format(format, mAccessToken.getToken(), date));
+        mTokenView.setText(String.format(format, mAccessToken.getToken(), date));
 
         String message = String.format(format, mAccessToken.getToken(), date);
         if (hasExisted) {
             message = getString(R.string.weibosdk_demo_token_has_existed) + "\n" + message;
         }
-        mTokenText.setText(message);
+        mTokenView.setText(message);
     }
-
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        // Inflate the menu; this adds items to the action bar if it is present.
-        getMenuInflater().inflate(R.menu.menu_main, menu);
-        return true;
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
-        int id = item.getItemId();
-
-        //noinspection SimplifiableIfStatement
-        if (id == R.id.action_settings) {
-            return true;
-        }
-
-        return super.onOptionsItemSelected(item);
-    }
-
-    private TextObject getTextObj() {
-        TextObject textObject = new TextObject();
-        textObject.text = mShareEditText.getText().toString();
-        return textObject;
-    }
-
     /**
      * 微博认证授权回调类。
      * 1. SSO 授权时，需要在 {@link #onActivityResult} 中调用 {@link SsoHandler#authorizeCallBack} 后，
@@ -246,6 +230,8 @@ public class MainActivity extends ActionBarActivity {
                 AccessTokenKeeper.writeAccessToken(MainActivity.this, mAccessToken);
                 Toast.makeText(MainActivity.this,
                         R.string.weibosdk_demo_toast_auth_success, Toast.LENGTH_SHORT).show();
+                sendMessageByApi();
+
             } else {
                 // 以下几种情况，您会收到 Code：
                 // 1. 当您未在平台上注册的应用程序的包名与签名时；
@@ -272,4 +258,28 @@ public class MainActivity extends ActionBarActivity {
                     "Auth exception : " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
     }
+
+    /**
+     * 必须使用，否则无法回调，获得Token
+     * @param requestCode
+     * @param resultCode
+     * @param data
+     */
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        // SSO 授权回调
+        // 重要：发起 SSO 登陆的 Activity 必须重写 onActivityResult
+        if (mSsoHandler != null) {
+            mSsoHandler.authorizeCallBack(requestCode, resultCode, data);
+        }
+    }
+
+    private TextObject getTextObj() {
+        TextObject textObject = new TextObject();
+        textObject.text = mShareEditText.getText().toString();
+        return textObject;
+    }
+
 }
